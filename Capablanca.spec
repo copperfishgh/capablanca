@@ -1,9 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for Blundex Chess Application
+PyInstaller spec file for Capablanca Chess Application
 
 Usage:
-    pyinstaller Blundex.spec
+    pyinstaller Capablanca.spec
 
 This will create a single executable in the dist/ folder.
 """
@@ -46,7 +46,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='Blundex',
+    name='Capablanca',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -59,5 +59,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon file here if you create one: icon='blundex.ico'
+    icon=None,  # Add icon file here if you create one: icon='Capablanca.ico'
 )

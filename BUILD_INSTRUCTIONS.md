@@ -1,4 +1,4 @@
-# Building Blundex Executable
+# Building Capablanca Executable
 
 ## Prerequisites
 
@@ -17,15 +17,15 @@
 Run this command from the `python/` directory:
 
 ```bash
-pyinstaller Blundex.spec
+pyinstaller Capablanca.spec
 ```
 
 ## Output
 
 The executable will be created at:
-- **Windows**: `dist/Blundex.exe`
-- **Mac**: `dist/Blundex` (Unix executable)
-- **Linux**: `dist/Blundex` (Unix executable)
+- **Windows**: `dist/Capablanca.exe`
+- **Mac**: `dist/Capablanca` (Unix executable)
+- **Linux**: `dist/Capablanca` (Unix executable)
 
 ## Distribution
 
@@ -36,16 +36,16 @@ Simply share the executable from the `dist/` folder. Users can run it without in
 ## Optional: Add an Icon
 
 1. Create or download a `.ico` file (Windows) or `.icns` file (Mac)
-2. Save it as `blundex.ico` in the `python/` directory
-3. Edit `Blundex.spec` and change:
+2. Save it as `Capablanca.ico` in the `python/` directory
+3. Edit `Capablanca.spec` and change:
    ```python
    icon=None,
    ```
    to:
    ```python
-   icon='blundex.ico',
+   icon='Capablanca.ico',
    ```
-4. Rebuild: `pyinstaller Blundex.spec`
+4. Rebuild: `pyinstaller Capablanca.spec`
 
 ## Troubleshooting
 
@@ -68,11 +68,11 @@ To remove build artifacts:
 ```bash
 # Windows
 rmdir /s /q build dist
-del Blundex.spec
+del Capablanca.spec
 
 # Mac/Linux
 rm -rf build dist __pycache__
 rm *.spec
 ```
 
-Then rebuild with `pyinstaller Blundex.spec`
+Then rebuild with `pyinstaller Capablanca.spec`

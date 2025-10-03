@@ -57,7 +57,7 @@ python main.py    # Run the application
 **Modular Architecture**: Clear separation between game logic, display, and configuration
 **Caching System**: Performance optimization for tactical analysis (hanging pieces, exchange evaluation)
 **Event-Driven Input**: Comprehensive keyboard shortcuts and mouse interaction system
-**Settings Persistence**: User preferences saved to `.blundex` configuration file
+**Settings Persistence**: User preferences saved to `.Capablanca` configuration file
 **Graceful Degradation**: Fallbacks for missing dependencies (NumPy, audio system)
 
 ### Asset Management
@@ -69,7 +69,7 @@ The `pngs/2x/` directory contains chess piece images in the format `{color}{piec
 
 ### Helper System Implementation
 
-**Settings Persistence**: User preferences saved to `.blundex` JSON file
+**Settings Persistence**: User preferences saved to `.Capablanca` JSON file
 **Performance**: Helpers use cached computation for tactical analysis
 **UI Integration**: Checkbox-based controls in right panel (`display.py:draw_help_panel`)
 
