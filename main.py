@@ -1,8 +1,12 @@
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
+import warnings
+warnings.filterwarnings('ignore', message='.*pkg_resources is deprecated.*')
+
 import pygame
 import sys
+import time
 import chess
 from chess_board import BoardState, square_from_coords, coords_from_square
 from display import ChessDisplay
@@ -382,8 +386,12 @@ while is_running:
     # Only redraw if something changed
     if needs_redraw:
         # Draw the chess board (with flip consideration)
+        redraw_start_time = time.time()
         current_mouse_pos = pygame.mouse.get_pos()
-        display.update_display(screen, game, selected_square_coords, highlighted_moves, display.is_help_option_enabled("flip_board"), preview_game, dragging_piece, drag_origin, current_mouse_pos)
+        display.update_display(screen, game, selected_square_coords, highlighted_moves, display.is_help_option_enabled("flip_board"), preview_game, dragging_piece, drag_origin, current_mouse_pos, show_forks=True)
+        redraw_end_time = time.time()
+        redraw_elapsed = (redraw_end_time - redraw_start_time) * 1000
+        print(f"Full redraw took {redraw_elapsed:.2f}ms")
 
         # Draw dragged piece snapped to square center
         if dragging_piece:

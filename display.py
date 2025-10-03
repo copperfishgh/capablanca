@@ -16,6 +16,9 @@ import chess
 from chess_board import BoardState, square_from_coords, coords_from_square
 from config import GameConfig, Colors, AnimationConfig, GameConstants
 
+# Timing debug
+import time as timing_module
+
 # Get the correct path for bundled resources (PyInstaller compatibility)
 def get_resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -795,7 +798,7 @@ class ChessDisplay:
     def draw_board(self, screen, board_state: BoardState, selected_square_coords: Optional[Tuple[int, int]] = None,
                    highlighted_moves: List[Tuple[int, int]] = None, is_board_flipped: bool = False,
                    preview_board_state: Optional[BoardState] = None, dragging_piece=None, drag_origin=None,
-                   mouse_pos: Optional[Tuple[int, int]] = None) -> None:
+                   mouse_pos: Optional[Tuple[int, int]] = None, show_forks: bool = False) -> None:
         """Draw the chess board with pieces"""
         if highlighted_moves is None:
             highlighted_moves = []
@@ -887,6 +890,30 @@ class ChessDisplay:
                     self.draw_move_indicator(screen, x, y)
 
                 # Exchange evaluation triangles removed
+
+        # Draw fork indicators if enabled
+        if show_forks:
+            draw_start_time = timing_module.perf_counter()
+
+            evaluation_board = preview_board_state if preview_board_state else board_state
+
+            # Get fork opportunities for both colors
+            white_forks = evaluation_board.get_fork_opportunities(chess.WHITE)
+            black_forks = evaluation_board.get_fork_opportunities(chess.BLACK)
+            all_forks = white_forks + black_forks
+
+            print(f"Drawing {len(all_forks)} forks")
+
+            # Draw arrows for each fork
+            for fork in all_forks:
+                origin_coords = coords_from_square(fork['origin'])
+                dest_coords = coords_from_square(fork['destination'])
+                print(f"  Arrow: {origin_coords} -> {dest_coords}")
+                self.draw_fork_arrow(screen, origin_coords, dest_coords, is_board_flipped)
+
+            draw_end_time = timing_module.perf_counter()
+            draw_elapsed = (draw_end_time - draw_start_time) * 1000
+            print(f"Fork drawing took {draw_elapsed:.2f}ms")
 
         # Draw exchange evaluation piece highlights (gray out non-highlighted) if hovering
         # Only run if NOT hovering over statistics (to avoid conflict)
@@ -1353,6 +1380,75 @@ class ChessDisplay:
         text_rect = text.get_rect(center=(circle_center_x, circle_center_y))
         screen.blit(text, text_rect)
 
+    def draw_fork_arrow(self, screen, from_coords: Tuple[int, int], to_coords: Tuple[int, int], is_board_flipped: bool) -> None:
+        """Draw an arrow from origin square to fork destination square"""
+        # Get display positions for both squares
+        from_pos = self.get_square_display_position(from_coords[0], from_coords[1], is_board_flipped)
+        to_pos = self.get_square_display_position(to_coords[0], to_coords[1], is_board_flipped)
+
+        if not from_pos or not to_pos:
+            return
+
+        # Calculate center points of each square
+        from_x, from_y = from_pos
+        to_x, to_y = to_pos
+        from_center = (from_x + self.square_size // 2, from_y + self.square_size // 2)
+        to_center = (to_x + self.square_size // 2, to_y + self.square_size // 2)
+
+        # Create a transparent surface for the arrow
+        import math
+
+        # Calculate bounding box for the arrow
+        min_x = min(from_center[0], to_center[0]) - 50
+        min_y = min(from_center[1], to_center[1]) - 50
+        max_x = max(from_center[0], to_center[0]) + 50
+        max_y = max(from_center[1], to_center[1]) + 50
+
+        width = max_x - min_x
+        height = max_y - min_y
+
+        # Create transparent surface
+        arrow_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        # Adjust coordinates relative to the surface
+        from_relative = (from_center[0] - min_x, from_center[1] - min_y)
+        to_relative = (to_center[0] - min_x, to_center[1] - min_y)
+
+        # Semi-transparent gray color (R, G, B, Alpha)
+        arrow_color = (128, 128, 128, 180)  # Gray with 70% opacity
+        line_width = 12  # Doubled from 6
+
+        # Draw arrow line on transparent surface
+        pygame.draw.line(arrow_surface, arrow_color, from_relative, to_relative, line_width)
+
+        # Draw arrowhead at destination
+        arrow_length = 40  # Doubled from 20
+        arrow_angle = 25  # degrees
+
+        # Calculate angle of the line
+        dx = to_relative[0] - from_relative[0]
+        dy = to_relative[1] - from_relative[1]
+        angle = math.atan2(dy, dx)
+
+        # Calculate arrowhead points
+        angle1 = angle + math.radians(180 - arrow_angle)
+        angle2 = angle + math.radians(180 + arrow_angle)
+
+        point1 = (
+            to_relative[0] + arrow_length * math.cos(angle1),
+            to_relative[1] + arrow_length * math.sin(angle1)
+        )
+        point2 = (
+            to_relative[0] + arrow_length * math.cos(angle2),
+            to_relative[1] + arrow_length * math.sin(angle2)
+        )
+
+        # Draw filled triangle for arrowhead on transparent surface
+        pygame.draw.polygon(arrow_surface, arrow_color, [to_relative, point1, point2])
+
+        # Blit the transparent surface onto the screen
+        screen.blit(arrow_surface, (min_x, min_y))
+
     def draw_gray_overlay(self, screen, x: int, y: int) -> None:
         """Draw a semi-transparent gray overlay to dim non-highlighted squares"""
         overlay = pygame.Surface((self.square_size, self.square_size), pygame.SRCALPHA)
@@ -1435,7 +1531,7 @@ class ChessDisplay:
     def update_display(self, screen, board_state: BoardState, selected_square_coords: Optional[Tuple[int, int]] = None,
                       highlighted_moves: List[Tuple[int, int]] = None, is_board_flipped: bool = False,
                       preview_board_state: Optional[BoardState] = None, dragging_piece=None, drag_origin=None,
-                      mouse_pos: Optional[Tuple[int, int]] = None) -> None:
+                      mouse_pos: Optional[Tuple[int, int]] = None, show_forks: bool = False) -> None:
         """Update the entire display"""
         # Check for checkmate and start animation if needed
         if board_state.is_in_checkmate and self.checkmate_animation_start_time is None:
@@ -1449,7 +1545,7 @@ class ChessDisplay:
         screen.fill(self.RGB_WHITE)
 
         # Draw all components
-        self.draw_board(screen, board_state, selected_square_coords, highlighted_moves, is_board_flipped, preview_board_state, dragging_piece, drag_origin, mouse_pos)
+        self.draw_board(screen, board_state, selected_square_coords, highlighted_moves, is_board_flipped, preview_board_state, dragging_piece, drag_origin, mouse_pos, show_forks)
 
         # Draw help panel with statistics (uses preview_board_state when dragging to legal square)
         stats_board_state = preview_board_state if preview_board_state else board_state
