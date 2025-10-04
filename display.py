@@ -16,9 +16,6 @@ import chess
 from chess_board import BoardState, square_from_coords, coords_from_square
 from config import GameConfig, Colors, AnimationConfig, GameConstants
 
-# Timing debug
-import time as timing_module
-
 # Get the correct path for bundled resources (PyInstaller compatibility)
 def get_resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
@@ -113,10 +110,6 @@ class ChessDisplay:
         self.hanging_glow_size = None
         self.attacked_glow_surface = None
         self.attacked_glow_size = None
-
-        # Performance tracking for hover computations
-        self.hover_computation_times = []
-        self.max_timing_samples = 30  # Rolling average of last 30 samples
 
     def invalidate_activity_cache(self):
         """Invalidate activity cache when board state changes"""
@@ -893,8 +886,6 @@ class ChessDisplay:
 
         # Draw fork indicators if enabled
         if show_forks:
-            draw_start_time = timing_module.perf_counter()
-
             evaluation_board = preview_board_state if preview_board_state else board_state
 
             # Get fork opportunities for both colors
@@ -902,18 +893,11 @@ class ChessDisplay:
             black_forks = evaluation_board.get_fork_opportunities(chess.BLACK)
             all_forks = white_forks + black_forks
 
-            print(f"Drawing {len(all_forks)} forks")
-
             # Draw arrows for each fork
             for fork in all_forks:
                 origin_coords = coords_from_square(fork['origin'])
                 dest_coords = coords_from_square(fork['destination'])
-                print(f"  Arrow: {origin_coords} -> {dest_coords}")
                 self.draw_fork_arrow(screen, origin_coords, dest_coords, is_board_flipped)
-
-            draw_end_time = timing_module.perf_counter()
-            draw_elapsed = (draw_end_time - draw_start_time) * 1000
-            print(f"Fork drawing took {draw_elapsed:.2f}ms")
 
         # Draw exchange evaluation piece highlights (gray out non-highlighted) if hovering
         # Only run if NOT hovering over statistics (to avoid conflict)
@@ -975,37 +959,6 @@ class ChessDisplay:
         
         # Draw coordinates
         self.draw_coordinates(screen, is_board_flipped)
-
-        # Draw performance metrics
-        self.draw_performance_metrics(screen)
-
-    def draw_performance_metrics(self, screen) -> None:
-        """Draw performance metrics in the top-left corner of the window"""
-        if not self.hover_computation_times:
-            return
-
-        # Calculate average
-        avg_time = sum(self.hover_computation_times) / len(self.hover_computation_times)
-
-        # Format text
-        text = f"Hover: {avg_time:.2f}ms"
-
-        # Render text with background for better visibility
-        text_surface = self.font_small.render(text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect()
-
-        # Position in top-left corner with small margin
-        margin = 10
-        text_rect.topleft = (margin, margin)
-
-        # Draw semi-transparent background
-        background_rect = text_rect.inflate(10, 4)
-        background_surface = pygame.Surface((background_rect.width, background_rect.height), pygame.SRCALPHA)
-        background_surface.fill((0, 0, 0, 180))  # Black with transparency
-        screen.blit(background_surface, background_rect.topleft)
-
-        # Draw text
-        screen.blit(text_surface, text_rect)
 
     def draw_dragged_piece(self, screen, piece, mouse_pos: Tuple[int, int], is_board_flipped: bool = False) -> None:
         """Draw a piece being dragged, snapped to center of square under mouse"""
@@ -1460,9 +1413,6 @@ class ChessDisplay:
         Get list of piece positions to highlight based on mouse hover over tactical squares.
         Returns list of (row, col) positions that should be highlighted in blue.
         """
-        # Start timing
-        start_time = time.perf_counter()
-
         # Check if mouse is over a tactically interesting square
         hovered_square = self.get_square_from_mouse(mouse_pos)
         if not hovered_square:
@@ -1484,12 +1434,6 @@ class ChessDisplay:
 
         # Get all attackers and defenders for this square
         attackers, defenders = board_state.get_all_attackers_and_defenders(chess_square)
-
-        # Record timing
-        elapsed_time = (time.perf_counter() - start_time) * 1000  # Convert to milliseconds
-        self.hover_computation_times.append(elapsed_time)
-        if len(self.hover_computation_times) > self.max_timing_samples:
-            self.hover_computation_times.pop(0)
 
         # Convert chess.Square back to (row, col) coordinates
         attacker_coords = [coords_from_square(sq) for sq in attackers]

@@ -14,7 +14,6 @@ Uses python-chess types directly:
 from typing import Optional, List, Tuple
 import copy
 import io
-import time
 import chess
 import chess.pgn
 from config import GameConstants
@@ -399,7 +398,6 @@ class BoardState:
 
         # --- FORK DETECTION ---
         # Detect all possible forks for both colors
-        fork_start_time = time.perf_counter()
         for color in [chess.WHITE, chess.BLACK]:
             color_pieces = white_pieces if color == chess.WHITE else black_pieces
             enemy_color = not color
@@ -466,9 +464,6 @@ class BoardState:
 
                     # Skip if destination square is defended by enemy (check AFTER moving)
                     if self.board.is_attacked_by(enemy_color, destination_square):
-                        # Debug: show what was filtered
-                        piece_name = chess.piece_name(piece.piece_type)
-                        print(f"Filtered {piece_name}: {chess.square_name(origin_square)} -> {chess.square_name(destination_square)} (defended)")
                         # Undo the temporary move
                         self.board.set_piece_at(origin_square, piece)
                         if captured_piece:
@@ -503,18 +498,10 @@ class BoardState:
                             'destination': destination_square,
                             'forked_pieces': forked_pieces
                         }
-                        color_name = "White" if color == chess.WHITE else "Black"
-                        piece_name = chess.piece_name(piece.piece_type)
-                        targets = [chess.square_name(sq) for sq in forked_pieces]
-                        print(f"Found {color_name} {piece_name} fork: {chess.square_name(origin_square)} -> {chess.square_name(destination_square)} attacks {targets}")
                         if color == chess.WHITE:
                             analysis['white_forks'].append(fork_data)
                         else:
                             analysis['black_forks'].append(fork_data)
-
-        fork_end_time = time.perf_counter()
-        fork_elapsed = (fork_end_time - fork_start_time) * 1000  # Convert to milliseconds
-        print(f"Fork detection took {fork_elapsed:.2f}ms")
 
         return analysis
 
