@@ -37,7 +37,7 @@ WINDOW_WIDTH = int(WINDOW_HEIGHT * GameConfig.WINDOW_ASPECT_RATIO)
 
 # Create display
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("Blundex")
+pygame.display.set_caption("Capablanca")
 
 
 # Simple error beep function

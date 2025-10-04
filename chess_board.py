@@ -427,11 +427,15 @@ class BoardState:
                                     forward_two = chess.square(file, rank + 2)
                                     if not self.board.piece_at(forward_two):
                                         candidate_squares.append(forward_two)
-                        # Diagonal captures
+                        # Diagonal captures (only if there's a piece to capture or en passant)
                         if rank < 7 and file > 0:
-                            candidate_squares.append(chess.square(file - 1, rank + 1))
+                            diag_square = chess.square(file - 1, rank + 1)
+                            if self.board.piece_at(diag_square) or self.board.ep_square == diag_square:
+                                candidate_squares.append(diag_square)
                         if rank < 7 and file < 7:
-                            candidate_squares.append(chess.square(file + 1, rank + 1))
+                            diag_square = chess.square(file + 1, rank + 1)
+                            if self.board.piece_at(diag_square) or self.board.ep_square == diag_square:
+                                candidate_squares.append(diag_square)
                     else:  # BLACK
                         if rank > 0:
                             forward_one = chess.square(file, rank - 1)
@@ -441,11 +445,15 @@ class BoardState:
                                     forward_two = chess.square(file, rank - 2)
                                     if not self.board.piece_at(forward_two):
                                         candidate_squares.append(forward_two)
-                        # Diagonal captures
+                        # Diagonal captures (only if there's a piece to capture or en passant)
                         if rank > 0 and file > 0:
-                            candidate_squares.append(chess.square(file - 1, rank - 1))
+                            diag_square = chess.square(file - 1, rank - 1)
+                            if self.board.piece_at(diag_square) or self.board.ep_square == diag_square:
+                                candidate_squares.append(diag_square)
                         if rank > 0 and file < 7:
-                            candidate_squares.append(chess.square(file + 1, rank - 1))
+                            diag_square = chess.square(file + 1, rank - 1)
+                            if self.board.piece_at(diag_square) or self.board.ep_square == diag_square:
+                                candidate_squares.append(diag_square)
                 else:
                     # For non-pawns, use the attacks method to get all possible destination squares
                     candidate_squares = list(self.board.attacks(origin_square))
@@ -463,14 +471,17 @@ class BoardState:
                     self.board.remove_piece_at(origin_square)
 
                     # Skip if destination square is defended by enemy (check AFTER moving)
+                    # EXCEPTION: Allow pawn forks even on defended squares (trading piece for pawn is losing)
                     if self.board.is_attacked_by(enemy_color, destination_square):
-                        # Undo the temporary move
-                        self.board.set_piece_at(origin_square, piece)
-                        if captured_piece:
-                            self.board.set_piece_at(destination_square, captured_piece)
-                        else:
-                            self.board.remove_piece_at(destination_square)
-                        continue
+                        if piece.piece_type != chess.PAWN:  # Only filter non-pawn forks
+                            # Undo the temporary move
+                            self.board.set_piece_at(origin_square, piece)
+                            if captured_piece:
+                                self.board.set_piece_at(destination_square, captured_piece)
+                            else:
+                                self.board.remove_piece_at(destination_square)
+                            continue
+                        # For pawns, continue to check if it's a fork
 
                     # Get all squares this piece attacks from the new position
                     attacked_squares = self.board.attacks(destination_square)

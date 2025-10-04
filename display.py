@@ -1371,9 +1371,6 @@ class ChessDisplay:
         arrow_color = (128, 128, 128, 180)  # Gray with 70% opacity
         line_width = 12  # Doubled from 6
 
-        # Draw arrow line on transparent surface
-        pygame.draw.line(arrow_surface, arrow_color, from_relative, to_relative, line_width)
-
         # Draw arrowhead at destination
         arrow_length = 40  # Doubled from 20
         arrow_angle = 25  # degrees
@@ -1395,6 +1392,16 @@ class ChessDisplay:
             to_relative[0] + arrow_length * math.cos(angle2),
             to_relative[1] + arrow_length * math.sin(angle2)
         )
+
+        # Calculate the base of the triangle (midpoint between point1 and point2)
+        # This is where the line shaft should terminate
+        base_mid = (
+            (point1[0] + point2[0]) / 2,
+            (point1[1] + point2[1]) / 2
+        )
+
+        # Draw arrow line on transparent surface, stopping at triangle base
+        pygame.draw.line(arrow_surface, arrow_color, from_relative, base_mid, line_width)
 
         # Draw filled triangle for arrowhead on transparent surface
         pygame.draw.polygon(arrow_surface, arrow_color, [to_relative, point1, point2])
