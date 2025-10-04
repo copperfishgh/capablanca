@@ -86,7 +86,7 @@ class ChessDisplay:
         self.checkbox_spacing = int(window_height * GameConfig.CHECKBOX_SPACING_PERCENTAGE)
 
         # Help options - load from settings file if available
-        self.settings_file = ".Capablanca"
+        self.settings_file = ".capablanca"
         self.help_options = [
             {"name": "Flip Board", "key": "flip_board", "enabled": False}
         ]
