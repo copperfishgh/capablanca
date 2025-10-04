@@ -1046,8 +1046,20 @@ class BoardState:
                 self.move_history.append(move)
                 self.last_move = move
 
-            # Clear undo/redo stacks after loading
-            self.undo_stack = []
+            # Build undo stack for game navigation
+            # Start with empty position
+            self.undo_stack = [(chess.Board(), [], None)]
+
+            # Replay moves and build undo stack for each position
+            temp_board = chess.Board()
+            temp_history = []
+            for move in pgn.mainline_moves():
+                temp_board.push(move)
+                temp_history.append(move)
+                # Save this position to undo stack
+                self.undo_stack.append((temp_board.copy(), copy.copy(temp_history), move))
+
+            # Clear redo stack (we're at the end)
             self.redo_stack = []
 
             self._update_game_status()
@@ -1084,6 +1096,55 @@ class BoardState:
         except Exception as e:
             # Failed to save PGN file
             return False
+
+    def load_fen_file(self, filename: str) -> bool:
+        """Load a position from a FEN file"""
+        try:
+            with open(filename, 'r') as f:
+                fen_string = f.read().strip()
+
+            # Set the board position from FEN
+            self.board.set_fen(fen_string)
+            self.move_history = []
+            self.last_move = None
+
+            # Clear undo/redo stacks
+            self.undo_stack = []
+            self.redo_stack = []
+
+            self._update_game_status()
+            self._invalidate_analysis()
+            return True
+
+        except Exception as e:
+            # Failed to load FEN file
+            return False
+
+    def save_fen_file(self, filename: str) -> bool:
+        """Save current position to a FEN file"""
+        try:
+            with open(filename, 'w') as f:
+                f.write(self.board.fen())
+            return True
+
+        except Exception as e:
+            # Failed to save FEN file
+            return False
+
+    def load_position_file(self, filename: str) -> bool:
+        """Load a position from either PGN or FEN file (auto-detect by extension)"""
+        import os
+        ext = os.path.splitext(filename)[1].lower()
+
+        if ext == '.pgn':
+            return self.load_pgn_file(filename)
+        elif ext == '.fen':
+            return self.load_fen_file(filename)
+        else:
+            # Try PGN first, then FEN
+            if self.load_pgn_file(filename):
+                return True
+            return self.load_fen_file(filename)
 
     def __str__(self) -> str:
         """String representation of the board"""

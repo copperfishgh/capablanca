@@ -64,15 +64,15 @@ except:
     font = pygame.font.Font(None, font_size)
 
 # Helper functions for file operations
-def get_load_filename():
-    """Get filename for loading PGN file"""
+def get_load_position_filename():
+    """Get filename for loading position (PGN or FEN)"""
     if DIALOG_AVAILABLE:
         # Hide main window temporarily
         root = tk.Tk()
         root.withdraw()
         filename = filedialog.askopenfilename(
-            title="Load PGN File",
-            filetypes=[("PGN files", "*.pgn"), ("All files", "*.*")],
+            title="Load Position (PGN or FEN)",
+            filetypes=[("Position files", "*.pgn;*.fen"), ("PGN files", "*.pgn"), ("FEN files", "*.fen"), ("All files", "*.*")],
             defaultextension=".pgn"
         )
         root.destroy()
@@ -81,14 +81,14 @@ def get_load_filename():
         # Fallback to default filename
         return "game.pgn" if os.path.exists("game.pgn") else None
 
-def get_save_filename():
+def get_save_pgn_filename():
     """Get filename for saving PGN file"""
     if DIALOG_AVAILABLE:
         # Hide main window temporarily
         root = tk.Tk()
         root.withdraw()
         filename = filedialog.asksaveasfilename(
-            title="Save PGN File",
+            title="Save Game to PGN",
             filetypes=[("PGN files", "*.pgn"), ("All files", "*.*")],
             defaultextension=".pgn"
         )
@@ -97,6 +97,23 @@ def get_save_filename():
     else:
         # Fallback to default filename
         return "game.pgn"
+
+def get_save_fen_filename():
+    """Get filename for saving FEN file"""
+    if DIALOG_AVAILABLE:
+        # Hide main window temporarily
+        root = tk.Tk()
+        root.withdraw()
+        filename = filedialog.asksaveasfilename(
+            title="Save Position to FEN",
+            filetypes=[("FEN files", "*.fen"), ("All files", "*.*")],
+            defaultextension=".fen"
+        )
+        root.destroy()
+        return filename if filename else None
+    else:
+        # Fallback to default filename
+        return "position.fen"
 
 # Game state
 selected_square_coords = None
@@ -179,10 +196,10 @@ while is_running:
                 last_hovered_square = None
                 last_hover_was_legal = False
                 needs_redraw = True
-            elif event.key == pygame.K_l and pygame.key.get_pressed()[pygame.K_LCTRL]:  # Ctrl+L to load PGN
-                filename = get_load_filename()
+            elif event.key == pygame.K_l and pygame.key.get_pressed()[pygame.K_LCTRL]:  # Ctrl+L to load position
+                filename = get_load_position_filename()
                 if filename:
-                    success = game.load_pgn_file(filename)
+                    success = game.load_position_file(filename)
                     if success:
                         # Clear any current selection and highlights
                         selected_square_coords = None
@@ -193,21 +210,32 @@ while is_running:
                         last_hover_was_legal = False
                         display.invalidate_activity_cache()
                         needs_redraw = True
-                        print(f"Loaded PGN file: {filename}")
+                        print(f"Loaded position from: {filename}")
                     else:
                         play_error_beep()
-                        print(f"Failed to load PGN file: {filename}")
+                        print(f"Failed to load position from: {filename}")
                 else:
                     play_error_beep()
-            elif event.key == pygame.K_s and pygame.key.get_pressed()[pygame.K_LCTRL]:  # Ctrl+S to save PGN
-                filename = get_save_filename()
+            elif event.key == pygame.K_p and pygame.key.get_pressed()[pygame.K_LCTRL]:  # Ctrl+P to save PGN
+                filename = get_save_pgn_filename()
                 if filename:
                     success = game.save_pgn_file(filename)
                     if success:
-                        print(f"Saved PGN file: {filename}")
+                        print(f"Saved game to PGN: {filename}")
                     else:
                         play_error_beep()
-                        print(f"Failed to save PGN file: {filename}")
+                        print(f"Failed to save PGN: {filename}")
+                else:
+                    play_error_beep()
+            elif event.key == pygame.K_f and pygame.key.get_pressed()[pygame.K_LCTRL]:  # Ctrl+F to save FEN
+                filename = get_save_fen_filename()
+                if filename:
+                    success = game.save_fen_file(filename)
+                    if success:
+                        print(f"Saved position to FEN: {filename}")
+                    else:
+                        play_error_beep()
+                        print(f"Failed to save FEN: {filename}")
                 else:
                     play_error_beep()
         elif event.type == pygame.MOUSEBUTTONDOWN:
