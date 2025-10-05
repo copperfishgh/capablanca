@@ -23,7 +23,8 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nFix Ctrl+F key conflict and reduce splash screen duration\n\n- Fix Ctrl+F not saving FEN (was being intercepted by F flip board)\n- Check for Ctrl modifier first before handling plain F key\n- Remove duplicate Ctrl+F handler later in code\n- Reduce splash screen from 2 seconds to 1 second\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(pyinstaller:*)",
       "Bash(pip install:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)"
     ],
     "deny": [],
     "ask": []
