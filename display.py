@@ -93,10 +93,15 @@ class ChessDisplay:
 
         # Help options - load from settings file if available
         self.settings_file = ".capablanca"
-        self.help_options = [
-            {"name": "Flip Board", "key": "flip_board", "enabled": False}
-        ]
+        self.help_options = []  # Removed Flip Board checkbox
         self._load_settings()
+
+        # Flip board state (no longer a checkbox)
+        self.flip_board_enabled = False
+
+        # Button rectangles for Flip Board and Help buttons
+        self.flip_board_button_rect = None
+        self.help_main_button_rect = None
 
         # Checkmate animation variables
         self.checkmate_animation_start_time = None
@@ -127,6 +132,10 @@ class ChessDisplay:
         # VCR control buttons
         self.vcr_button_rects = {}  # Store button rectangles for click detection
         self.vcr_button_size = int(window_width * 0.04)  # 4% of window width
+
+        # Help button
+        self.help_button_rect = None  # Store help button rectangle for click detection
+        self.help_overlay_visible = False  # Show help overlay instead of separate window
 
     def invalidate_activity_cache(self):
         """Invalidate activity cache when board state changes"""
@@ -269,20 +278,17 @@ class ChessDisplay:
         return circle_surface
 
     def draw_help_panel(self, screen, board_state=None, is_board_flipped=False) -> None:
-        """Draw the help panel with checkboxes on the right side of the board and statistics below"""
+        """Draw the help panel on the right side of the board with statistics"""
         # Draw panel background (optional - subtle background)
         panel_rect = pygame.Rect(self.help_panel_x, self.help_panel_y,
                                self.help_panel_width, self.board_size)
         pygame.draw.rect(screen, Colors.HELP_PANEL_BACKGROUND, panel_rect)
         pygame.draw.rect(screen, Colors.RGB_BLACK, panel_rect, 1)
 
-        # Draw checkboxes
+        # Start position for statistics (no checkboxes at top anymore)
         current_y = self.help_panel_y + 20
-        for i, option in enumerate(self.help_options):
-            self._draw_checkbox(screen, self.help_panel_x + 10, current_y, option)
-            current_y += self.checkbox_spacing
 
-        # Draw statistics below checkboxes if board_state is provided
+        # Draw statistics if board_state is provided
         if board_state:
             # Calculate vertical centering for statistics table
             # 9 rows in the table, calculate total height needed
@@ -833,6 +839,11 @@ class ChessDisplay:
 
     def toggle_help_option(self, key: str) -> bool:
         """Toggle a help option and return its new state"""
+        if key == "flip_board":
+            self.flip_board_enabled = not self.flip_board_enabled
+            self._save_settings()
+            return self.flip_board_enabled
+
         for option in self.help_options:
             if option["key"] == key:
                 option["enabled"] = not option["enabled"]
@@ -842,6 +853,9 @@ class ChessDisplay:
 
     def is_help_option_enabled(self, key: str) -> bool:
         """Check if a help option is enabled"""
+        if key == "flip_board":
+            return self.flip_board_enabled
+
         for option in self.help_options:
             if option["key"] == key:
                 return option["enabled"]
@@ -1165,13 +1179,13 @@ class ChessDisplay:
         self.draw_coordinates(screen, is_board_flipped)
 
         # Draw captured pieces
-        self.draw_captured_pieces(screen, board_state, is_board_flipped)
+        self.draw_captured_pieces(screen, board_state, is_board_flipped, mouse_pos)
 
         # Draw animated move if active
         if is_animating_move:
             self.draw_move_animation(screen, is_board_flipped)
 
-    def draw_captured_pieces(self, screen, board_state: BoardState, is_board_flipped: bool) -> None:
+    def draw_captured_pieces(self, screen, board_state: BoardState, is_board_flipped: bool, mouse_pos: Tuple[int, int] = None) -> None:
         """Draw captured pieces above or below the board"""
         # Miniature piece size (smaller than board pieces)
         piece_size = self.square_size // 3
@@ -1215,6 +1229,11 @@ class ChessDisplay:
                                       chess.BLACK,  # Color of the captured pieces (black)
                                       advantage_below if advantage_below > 0 else 0)
 
+        # Draw Flip Board and Help buttons right under stats panel
+        # Position at the bottom of the help panel
+        button_y = self.help_panel_y + self.board_size + 10
+        self._draw_flip_and_help_buttons(screen, button_y, mouse_pos)
+
     def _draw_captured_pieces_row(self, screen, piece_types: List[int], y: int, piece_size: int, color: bool, advantage: int = 0) -> None:
         """Draw a row of captured pieces with optional material advantage"""
         # Starting x position (left-aligned with board)
@@ -1248,6 +1267,63 @@ class ChessDisplay:
             advantage_text = f"+{advantage}"
             advantage_surface = self.font_small.render(advantage_text, True, Colors.RGB_BLACK)
             screen.blit(advantage_surface, (x + 5, y + (piece_size - advantage_surface.get_height()) // 2))
+
+    def _draw_flip_and_help_buttons(self, screen, y: int, mouse_pos: Tuple[int, int] = None) -> None:
+        """Draw Flip Board and Help buttons side by side, right-justified with hover effects"""
+        # Button dimensions
+        button_height = 25
+        button_spacing = 10
+
+        # Calculate button positions (right-justified to stats panel right edge)
+        stats_panel_right = self.help_panel_x + self.help_panel_width
+
+        # Check if mouse is hovering over buttons
+        flip_is_hovered = False
+        help_is_hovered = False
+
+        if mouse_pos:
+            # We need to create temp rects to check hover before drawing
+            flip_text_temp = self.font_small.render("Flip Board", True, Colors.RGB_BLACK)
+            help_text_temp = self.font_small.render("Help", True, Colors.RGB_BLACK)
+            flip_button_width_temp = flip_text_temp.get_width() + 20
+            help_button_width_temp = help_text_temp.get_width() + 20
+            help_button_x_temp = stats_panel_right - help_button_width_temp - 10
+            flip_button_x_temp = help_button_x_temp - flip_button_width_temp - button_spacing
+
+            flip_rect_temp = pygame.Rect(flip_button_x_temp, y, flip_button_width_temp, button_height)
+            help_rect_temp = pygame.Rect(help_button_x_temp, y, help_button_width_temp, button_height)
+
+            flip_is_hovered = flip_rect_temp.collidepoint(mouse_pos)
+            help_is_hovered = help_rect_temp.collidepoint(mouse_pos)
+
+        # Choose font based on hover state
+        flip_font = self.font_small_bold if flip_is_hovered else self.font_small
+        help_font = self.font_small_bold if help_is_hovered else self.font_small
+
+        # Measure button text to determine widths
+        flip_text = flip_font.render("Flip Board", True, Colors.RGB_BLACK)
+        help_text = help_font.render("Help", True, Colors.RGB_BLACK)
+
+        flip_button_width = flip_text.get_width() + 20  # Add padding
+        help_button_width = help_text.get_width() + 20  # Add padding
+
+        # Position buttons (right-justified, side by side)
+        help_button_x = stats_panel_right - help_button_width - 10
+        flip_button_x = help_button_x - flip_button_width - button_spacing
+
+        # Create button rectangles
+        self.flip_board_button_rect = pygame.Rect(flip_button_x, y, flip_button_width, button_height)
+        self.help_button_rect = pygame.Rect(help_button_x, y, help_button_width, button_height)
+
+        # Draw Flip Board button (no border, just text)
+        text_x = flip_button_x + (flip_button_width - flip_text.get_width()) // 2
+        text_y = y + (button_height - flip_text.get_height()) // 2
+        screen.blit(flip_text, (text_x, text_y))
+
+        # Draw Help button (no border, just text)
+        text_x = help_button_x + (help_button_width - help_text.get_width()) // 2
+        text_y = y + (button_height - help_text.get_height()) // 2
+        screen.blit(help_text, (text_x, text_y))
 
     def draw_dragged_piece(self, screen, piece, mouse_pos: Tuple[int, int], is_board_flipped: bool = False) -> None:
         """Draw a piece being dragged, snapped to center of square under mouse"""
@@ -1795,6 +1871,9 @@ class ChessDisplay:
         if board_state.is_in_stalemate:
             self.draw_stalemate_overlay(screen)
 
+        # Draw help overlay if visible
+        self.draw_help_overlay(screen)
+
         # Note: pygame.display.flip() is called in the main loop, not here
 
     def draw_stalemate_overlay(self, screen) -> None:
@@ -2019,6 +2098,10 @@ class ChessDisplay:
                 with open(self.settings_file, 'r') as f:
                     settings = json.load(f)
 
+                # Load flip board state
+                if "flip_board" in settings:
+                    self.flip_board_enabled = settings["flip_board"]
+
                 # Update help options with saved states
                 for option in self.help_options:
                     key = option["key"]
@@ -2031,7 +2114,7 @@ class ChessDisplay:
     def _save_settings(self) -> None:
         """Save checkbox states to settings file"""
         try:
-            settings = {}
+            settings = {"flip_board": self.flip_board_enabled}
             for option in self.help_options:
                 settings[option["key"]] = option["enabled"]
 
@@ -2040,6 +2123,124 @@ class ChessDisplay:
         except IOError:
             # If we can't save settings, continue silently (don't crash the game)
             pass
+
+    def toggle_help_overlay(self) -> None:
+        """Toggle the help overlay"""
+        self.help_overlay_visible = not self.help_overlay_visible
+
+    def draw_help_overlay(self, screen) -> None:
+        """Draw the help overlay on the main window"""
+        if not self.help_overlay_visible:
+            return
+
+        # Semi-transparent dark background
+        overlay = pygame.Surface((self.window_width, self.window_height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # Help box dimensions
+        box_width = 600
+        box_height = 500
+        box_x = (self.window_width - box_width) // 2
+        box_y = (self.window_height - box_height) // 2
+
+        # Draw white box
+        box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+        pygame.draw.rect(screen, (255, 255, 255), box_rect)
+        pygame.draw.rect(screen, (0, 0, 0), box_rect, 3)
+
+        # Help text content - structured as (text, font, is_title, column) where column is 0 for full width, 1 for left, 2 for right
+        help_lines = [
+            ("CAPABLANCA HELP", self.font_medium_bold, True, 0),
+            ("", None, False, 0),
+            ("Statistics Panel on the right:", self.font_small_bold, False, 0),
+            ("  Hover over any stat to show relevant pieces", self.font_small, False, 0),
+            ("  Green background = stat favors player", self.font_small, False, 0),
+            ("  Red background = stat favors opponent", self.font_small, False, 0),
+            ("", None, False, 0),
+            ("Tactical Indicators on chessboard:", self.font_small_bold, False, 0),
+            ("  Hover the cursor over pieces to see possible capture exchanges", self.font_small, False, 0),
+            ("  Yellow disc behind piece means it has defenders", self.font_small, False, 0),
+            ("  Red disc behind piece means it has no defenders (hanging)", self.font_small, False, 0),
+            ("  P in white circle means a piece is Pinned", self.font_small, False, 0),
+            ("  S in white circle means a piece is Skewered", self.font_small, False, 0),
+            ("  Gray arrows indicate potential forks", self.font_small, False, 0),
+            ("", None, False, 0),
+            ("Keyboard Shortcuts", self.font_small_bold, False, 3),  # Column 3 = centered over columns
+            ("", None, False, 0),
+            ("Move Navigation", self.font_small_bold, False, 1),
+            ("Other", self.font_small_bold, False, 2),
+            ("Left Arrow - Back", self.font_small, False, 1),
+            ("F - Flip Board", self.font_small, False, 2),
+            ("Right Arrow - Forward", self.font_small, False, 1),
+            ("h - Help", self.font_small, False, 2),
+            ("Ctrl+Left - Rewind", self.font_small, False, 1),
+            ("Ctrl+L - Load PGN", self.font_small, False, 2),
+            ("Ctrl+Right - Fast Fwd", self.font_small, False, 1),
+            ("Ctrl+P - Save PGN", self.font_small, False, 2),
+            ("", None, False, 0),
+            ("", None, False, 0),
+            ("Ctrl+F - Save FEN", self.font_small, False, 2),
+        ]
+
+        y = box_y + 20
+
+        # Calculate column widths for centering
+        # Find all column 1 and column 2 entries to determine their max widths
+        col1_max_width = 0
+        col2_max_width = 0
+        for line_text, font, is_title, column in help_lines:
+            if column == 1 and font:
+                text_width = font.size(line_text)[0]
+                col1_max_width = max(col1_max_width, text_width)
+            elif column == 2 and font:
+                text_width = font.size(line_text)[0]
+                col2_max_width = max(col2_max_width, text_width)
+
+        # Calculate centered positions for the two-column unit
+        column_spacing = 40  # Space between the two columns
+        total_columns_width = col1_max_width + column_spacing + col2_max_width
+        col1_x = box_x + (box_width - total_columns_width) // 2
+        col2_x = col1_x + col1_max_width + column_spacing
+
+        left_col_y = 0
+        right_col_y = 0
+
+        for line_text, font, is_title, column in help_lines:
+            if line_text == "":
+                if column == 0:
+                    y += 10
+                continue
+
+            if font is None:
+                continue
+
+            color = (0, 0, 0) if not is_title else (50, 50, 150)
+            text_surface = font.render(line_text, True, color)
+
+            if column == 0:  # Full width
+                x = box_x + 20 if not is_title else box_x + (box_width - text_surface.get_width()) // 2
+                screen.blit(text_surface, (x, y))
+                y += text_surface.get_height() + 5
+                left_col_y = y
+                right_col_y = y
+            elif column == 3:  # Centered over the two-column block
+                # Center this text over the two-column unit
+                x = col1_x + (total_columns_width - text_surface.get_width()) // 2
+                screen.blit(text_surface, (x, y))
+                y += text_surface.get_height() + 5
+                left_col_y = y
+                right_col_y = y
+            elif column == 1:  # Left column
+                screen.blit(text_surface, (col1_x, left_col_y))
+                left_col_y += text_surface.get_height() + 3
+            elif column == 2:  # Right column
+                screen.blit(text_surface, (col2_x, right_col_y))
+                right_col_y += text_surface.get_height() + 3
+
+    def is_help_overlay_visible(self) -> bool:
+        """Check if help overlay is visible"""
+        return self.help_overlay_visible
 
     def quit(self) -> None:
         """Clean up Pygame resources"""

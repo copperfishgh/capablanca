@@ -165,6 +165,20 @@ clock = pygame.time.Clock()
 while is_running:
     # Handle events
     for event in pygame.event.get():
+        # Handle help overlay events first (if visible)
+        if display.is_help_overlay_visible():
+            if event.type == pygame.QUIT:
+                is_running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    display.toggle_help_overlay()
+                    needs_redraw = True
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Close help overlay on any click
+                display.toggle_help_overlay()
+                needs_redraw = True
+            continue  # Skip main window event handling when overlay is visible
+
         if event.type == pygame.QUIT:
             is_running = False
         elif event.type == pygame.KEYDOWN:
@@ -287,6 +301,18 @@ while is_running:
                     play_error_beep()
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
+
+            # Check if Flip Board button was clicked
+            if display.flip_board_button_rect and display.flip_board_button_rect.collidepoint(mouse_pos):
+                display.toggle_help_option("flip_board")
+                needs_redraw = True
+                continue
+
+            # Check if Help button was clicked
+            if display.help_button_rect and display.help_button_rect.collidepoint(mouse_pos):
+                display.toggle_help_overlay()
+                needs_redraw = True
+                continue
 
             # Check if a VCR button was clicked
             vcr_button = display.get_vcr_button_at_pos(mouse_pos)
@@ -486,11 +512,26 @@ while is_running:
     display.update_statistics_hover(current_mouse_pos)
     statistics_hover_changed = (display.hovered_statistic != previous_hovered_statistic)
 
+    # Check if mouse is over Flip Board or Help buttons
+    button_hover = False
+    if display.flip_board_button_rect and display.flip_board_button_rect.collidepoint(current_mouse_pos):
+        button_hover = True
+    elif display.help_button_rect and display.help_button_rect.collidepoint(current_mouse_pos):
+        button_hover = True
+
+    # Track button hover state changes
+    if not hasattr(display, '_last_button_hover'):
+        display._last_button_hover = False
+
+    button_hover_changed = (button_hover != display._last_button_hover)
+    display._last_button_hover = button_hover
+
     # Only redraw if hover state changed in a meaningful way
     hover_state_changed = (
         current_hovered_square != last_hovered_square or  # Different square
         current_hover_is_legal != last_hover_was_legal or # Legal status changed
-        statistics_hover_changed                          # Statistics hover changed
+        statistics_hover_changed or                       # Statistics hover changed
+        button_hover_changed                              # Button hover changed
     )
 
     if hover_state_changed:
