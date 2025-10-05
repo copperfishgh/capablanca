@@ -286,7 +286,7 @@ class ChessDisplay:
         if board_state:
             # Calculate vertical centering for statistics table
             # 9 rows in the table, calculate total height needed
-            stats_row_height = self.font_small.get_height() + 4
+            stats_row_height = self.font_medium.get_height() + 6
             total_table_height = 9 * stats_row_height
 
             # Calculate space for VCR controls at bottom
@@ -309,7 +309,7 @@ class ChessDisplay:
         # Table dimensions - reduced size
         table_width = self.help_panel_width - 40  # Increased margin for smaller box
         table_x = self.help_panel_x + 20
-        row_height = self.font_small.get_height() + 4  # Reduced padding for tighter rows
+        row_height = self.font_medium.get_height() + 6  # Moderate padding for readable rows
 
         # Column widths (proportional to table width)
         col1_width = int(table_width * 0.5)   # Statistic name (left)
@@ -409,7 +409,7 @@ class ChessDisplay:
                            (table_x + table_width, current_y), (table_x + table_width, current_y + row_height))
 
             # Column 1: Statistic name (left-aligned)
-            name_surface = self.font_small.render(row_name, True, Colors.RGB_BLACK)
+            name_surface = self.font_medium.render(row_name, True, Colors.RGB_BLACK)
             name_x = table_x + 5  # 5px padding from left
             name_y = current_y + (row_height - name_surface.get_height()) // 2
             screen.blit(name_surface, (name_x, name_y))
@@ -419,7 +419,7 @@ class ChessDisplay:
             if row_name == "Hanging" and player_val > 0:
                 player_surface = self.font_medium_bold.render(str(player_val), True, (255, 0, 0))
             else:
-                player_surface = self.font_small.render(str(player_val), True, Colors.RGB_BLACK)
+                player_surface = self.font_medium.render(str(player_val), True, Colors.RGB_BLACK)
             player_x = table_x + col1_width + (col2_width - player_surface.get_width()) // 2
             player_y = current_y + (row_height - player_surface.get_height()) // 2
             screen.blit(player_surface, (player_x, player_y))
@@ -429,7 +429,7 @@ class ChessDisplay:
             if row_name == "Hanging" and opponent_val > 0:
                 opponent_surface = self.font_medium_bold.render(str(opponent_val), True, (255, 0, 0))
             else:
-                opponent_surface = self.font_small.render(str(opponent_val), True, Colors.RGB_BLACK)
+                opponent_surface = self.font_medium.render(str(opponent_val), True, Colors.RGB_BLACK)
             opponent_x = table_x + col1_width + col2_width + (col3_width - opponent_surface.get_width()) // 2
             opponent_y = current_y + (row_height - opponent_surface.get_height()) // 2
             screen.blit(opponent_surface, (opponent_x, opponent_y))
@@ -514,7 +514,7 @@ class ChessDisplay:
 
         if stat_type == "activity":
             return self._get_activity_squares(board_state, target_color)
-        elif stat_type == "development":
+        elif stat_type == "developed":
             return self._get_developed_pieces(board_state, target_color)
         elif stat_type == "attacked":
             return self._get_attacked_pieces(board_state, target_color)
