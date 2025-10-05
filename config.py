@@ -11,19 +11,63 @@ class GameConfig:
     # Window and display settings
     SCREEN_SIZE_PERCENTAGE = 0.75  # 75% of screen dimensions
     WINDOW_ASPECT_RATIO = 1.4      # Wider to accommodate help panel
+    MIN_WINDOW_WIDTH = 600         # Minimum window width in pixels
+    MIN_WINDOW_HEIGHT = 429        # Minimum window height (calculated from width/aspect ratio)
+
+    # Board sizing and positioning
     BOARD_SIZE_PERCENTAGE = 0.85   # 85% of smaller window dimension
+    BOARD_VERTICAL_MULTIPLIER = 0.9 # Multiplier for available vertical space
     BOARD_MARGIN_PERCENTAGE = 0.07 # 7% margin from edges
 
-    # Button settings
-    BUTTON_WIDTH_PERCENTAGE = 0.35  # 35% of window width
-    BUTTON_HEIGHT_PERCENTAGE = 0.08 # 8% of window height
-    BUTTON_Y_PERCENTAGE = 0.9       # 90% down from top
-
-    # Help checkbox settings
+    # Help panel
     HELP_PANEL_WIDTH_PERCENTAGE = 0.35  # 35% of window width for help panel
     HELP_PANEL_MARGIN_PERCENTAGE = 0.02 # 2% margin between board and help panel
+    HELP_PANEL_TOP_PADDING = 0.015      # 1.5% of window height for top padding
+    HELP_PANEL_TABLE_MARGIN = 0.03      # 3% of panel width for table margins
+    HELP_PANEL_TABLE_PADDING = 0.015    # 1.5% of panel width for table padding
+
+    # VCR buttons
+    VCR_BUTTON_SIZE_PERCENTAGE = 0.04   # 4% of window width
+    VCR_BUTTON_SPACING_PERCENTAGE = 0.008 # 0.8% of window width
+    VCR_BUTTON_BOTTOM_MARGIN = 0.015    # 1.5% of window height from bottom
+
+    # Flip Board and Help buttons
+    FLIP_HELP_BUTTON_HEIGHT = 0.019     # 1.9% of window height
+    FLIP_HELP_BUTTON_SPACING = 0.008    # 0.8% of window width
+    FLIP_HELP_BUTTON_PADDING = 0.015    # 1.5% of window width for text padding
+    FLIP_HELP_BUTTON_MARGIN_RIGHT = 0.008 # 0.8% of window width from panel edge
+    FLIP_HELP_BUTTON_Y_OFFSET = 0.008   # 0.8% of window height below stats panel
+
+    # Checkbox settings
     CHECKBOX_SIZE_PERCENTAGE = 0.025    # 2.5% of window width for checkbox size
     CHECKBOX_SPACING_PERCENTAGE = 0.05  # 5% of window height between checkboxes
+    CHECKBOX_LABEL_SPACING = 0.01       # 1% of window width between checkbox and label
+    CHECKBOX_SHADOW_OFFSET = 0.002      # 0.2% of window width for shadow
+    CHECKBOX_CORNER_RADIUS = 0.003      # 0.3% of window width for rounded corners
+
+    # Captured pieces display
+    CAPTURED_PIECE_SIZE_RATIO = 0.33    # Captured piece size relative to square size
+    CAPTURED_PIECE_Y_OFFSET = 0.008     # 0.8% of window height above/below board
+    CAPTURED_PIECE_SPACING = 0.004      # 0.4% of window width between pieces
+    CAPTURED_PAWN_SCALE = 0.7           # Pawns are 70% of other captured pieces
+    CAPTURED_ADVANTAGE_SPACING = 0.004  # 0.4% of window width before advantage text
+
+    # Board border and elements
+    BOARD_BORDER_THICKNESS = 0.002      # 0.2% of window width
+    COORDINATE_OFFSET = 0.008           # 0.8% of window height for coordinate text
+
+    # Statistics table
+    STATS_ROW_PADDING = 0.004           # 0.4% of window height for row padding
+    STATS_TABLE_ROWS = 9                # Number of rows in stats table
+    STATS_CELL_PADDING = 0.004          # 0.4% of window width for cell padding
+
+    # Help overlay (modal window)
+    HELP_OVERLAY_WIDTH = 0.8            # 80% of window width
+    HELP_OVERLAY_HEIGHT = 0.8           # 80% of window height
+    HELP_OVERLAY_BORDER = 0.003         # 0.3% of window width
+    HELP_OVERLAY_PADDING = 0.02         # 2% of overlay width
+    HELP_OVERLAY_LINE_SPACING = 0.006   # 0.6% of overlay height
+    HELP_OVERLAY_COLUMN_SPACING = 0.04  # 4% of overlay width
 
     # Font sizes (as percentage of board size)
     FONT_LARGE_PERCENTAGE = 0.09   # 9% of board size

@@ -35,8 +35,8 @@ WINDOW_HEIGHT = int(min(SCREEN_WIDTH * GameConfig.SCREEN_SIZE_PERCENTAGE,
                        SCREEN_HEIGHT * GameConfig.SCREEN_SIZE_PERCENTAGE))
 WINDOW_WIDTH = int(WINDOW_HEIGHT * GameConfig.WINDOW_ASPECT_RATIO)
 
-# Create display
-screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+# Create display (resizable)
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Capablanca")
 
 # Display splash screen
@@ -181,6 +181,23 @@ while is_running:
 
         if event.type == pygame.QUIT:
             is_running = False
+        elif event.type == pygame.VIDEORESIZE:
+            # Handle window resize - always maintain aspect ratio
+            target_ratio = GameConfig.WINDOW_ASPECT_RATIO
+            new_width = event.w
+            new_height = int(new_width / target_ratio)
+
+            # Enforce minimum size
+            if new_width < GameConfig.MIN_WINDOW_WIDTH:
+                new_width = GameConfig.MIN_WINDOW_WIDTH
+                new_height = int(new_width / target_ratio)
+
+            # Update screen with constrained dimensions
+            screen = pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
+
+            # Resize display object to match new dimensions
+            display.resize(new_width, new_height)
+            needs_redraw = True
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 if show_help_panel:

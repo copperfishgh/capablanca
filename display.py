@@ -33,9 +33,10 @@ class ChessDisplay:
     
     def __init__(self, window_width: int = 800, window_height: int = 600):
         """Initialize the display with window dimensions"""
-        self.window_width = window_width
-        self.window_height = window_height
-        
+        # Ensure pygame is initialized before doing anything
+        if not pygame.get_init():
+            pygame.init()
+
         # Colors from config
         self.RGB_WHITE = Colors.RGB_WHITE
         self.RGB_BLACK = Colors.RGB_BLACK
@@ -43,9 +44,99 @@ class ChessDisplay:
         self.DARK_SQUARE = Colors.DARK_SQUARE
         self.HIGHLIGHT = Colors.HIGHLIGHT
         self.SELECTED = Colors.SELECTED
-        
-        # Board dimensions using config values (restored to normal)
-        self.board_size = int(min(window_width, window_height * 0.9) * GameConfig.BOARD_SIZE_PERCENTAGE)
+
+        # Settings and state that don't depend on window size
+        self.settings_file = ".capablanca"
+        self.help_options = []  # Removed Flip Board checkbox
+        self.flip_board_enabled = False
+        self.help_overlay_visible = False
+
+        # Animation state variables
+        self.checkmate_animation_start_time = None
+        self.checkmate_king_position = None
+        self.move_animation_start_time = None
+        self.move_animation_from_square = None
+        self.move_animation_to_square = None
+        self.move_animation_piece = None
+        self.move_animation_duration = 0.1  # 100ms in seconds (1/10 second)
+
+        # Cache state variables
+        self.cached_activity_white = 0
+        self.cached_activity_black = 0
+        self.activity_cache_valid = False
+
+        # UI state variables
+        self.hovered_statistic = None
+        self.statistic_cell_rects = {}
+        self.vcr_button_rects = {}
+        self.flip_board_button_rect = None
+        self.help_main_button_rect = None
+        self.help_button_rect = None
+
+        # Cached surfaces (will be recreated on resize)
+        self.hanging_glow_surface = None
+        self.hanging_glow_size = None
+        self.attacked_glow_surface = None
+        self.attacked_glow_size = None
+        self.move_indicator = None
+
+        # Store original (unscaled) piece images for resizing
+        self.original_piece_images = {}
+        self.piece_images = {}
+
+        # Load original piece images once
+        self._load_original_piece_images()
+
+        # Load settings
+        self._load_settings()
+
+        # Calculate all dimensions and create scaled resources
+        self._calculate_dimensions(window_width, window_height)
+
+    def invalidate_activity_cache(self):
+        """Invalidate activity cache when board state changes"""
+        self.activity_cache_valid = False
+
+    def _load_original_piece_images(self) -> None:
+        """Load original unscaled piece images from PNG files (called once)"""
+        # Map piece types to their string representations for filenames
+        piece_symbols = {
+            chess.PAWN: 'P',
+            chess.KNIGHT: 'N',
+            chess.BISHOP: 'B',
+            chess.ROOK: 'R',
+            chess.QUEEN: 'Q',
+            chess.KING: 'K'
+        }
+
+        for color in [chess.WHITE, chess.BLACK]:
+            for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]:
+                # Create filename based on naming convention: {color}{piece}.png
+                color_prefix = "w" if color == chess.WHITE else "b"
+                piece_symbol = piece_symbols[piece_type]
+                relative_filename = f"images/2x/{color_prefix}{piece_symbol}.png"
+                filename = get_resource_path(relative_filename)
+
+                try:
+                    # Load the original image (don't scale yet)
+                    original_image = pygame.image.load(filename)
+
+                    # Store with the key format: "w1" for white pawn, "b6" for black king, etc.
+                    color_str = "w" if color == chess.WHITE else "b"
+                    key = f"{color_str}{piece_type}"
+                    self.original_piece_images[key] = original_image
+
+                except pygame.error as e:
+                    print(f"Warning: Could not load piece image: {filename}")
+                    print(f"Error: {e}")
+
+    def _calculate_dimensions(self, window_width: int, window_height: int) -> None:
+        """Calculate all dimensions based on window size and create scaled resources"""
+        self.window_width = window_width
+        self.window_height = window_height
+
+        # Board dimensions using config values
+        self.board_size = int(min(window_width, window_height * GameConfig.BOARD_VERTICAL_MULTIPLIER) * GameConfig.BOARD_SIZE_PERCENTAGE)
         self.square_size = self.board_size // GameConstants.BOARD_SIZE
 
         # Position board - horizontally with margin, vertically centered
@@ -54,15 +145,40 @@ class ChessDisplay:
         legend_space = self.square_size  # Space for coordinate legends
         total_board_height = self.board_size + legend_space
         self.board_margin_y = (window_height - total_board_height) // 2
-        
-        # Ensure pygame is initialized before creating fonts
-        if not pygame.get_init():
-            pygame.init()
-        
-        # Font setup using config values - modern sans-serif fonts
+
+        # Help panel dimensions and positioning
+        self.help_panel_width = int(window_width * GameConfig.HELP_PANEL_WIDTH_PERCENTAGE)
+        self.help_panel_x = self.board_margin_x + self.board_size + int(window_width * GameConfig.HELP_PANEL_MARGIN_PERCENTAGE)
+        self.help_panel_y = self.board_margin_y
+
+        # Checkbox dimensions
+        self.checkbox_size = int(window_width * GameConfig.CHECKBOX_SIZE_PERCENTAGE)
+        self.checkbox_spacing = int(window_height * GameConfig.CHECKBOX_SPACING_PERCENTAGE)
+
+        # VCR control buttons
+        self.vcr_button_size = int(window_width * GameConfig.VCR_BUTTON_SIZE_PERCENTAGE)
+
+        # Create fonts at appropriate sizes
+        self._create_fonts()
+
+        # Scale piece images to match new square size
+        self._scale_piece_images()
+
+        # Create move indicator circle surface
+        self.move_indicator = self._create_move_indicator()
+
+        # Invalidate cached surfaces so they'll be recreated
+        self.hanging_glow_surface = None
+        self.hanging_glow_size = None
+        self.attacked_glow_surface = None
+        self.attacked_glow_size = None
+
+    def _create_fonts(self) -> None:
+        """Create fonts at sizes appropriate for current board size"""
+        font_list = 'inter,sfprodisplay,roboto,notosans,opensans,lato,calibri,segoeui,helvetica,arial,sans-serif'
+
         try:
-            # Try to use modern system fonts (Inter, SF Pro, Roboto, etc.)
-            font_list = 'inter,sfprodisplay,roboto,notosans,opensans,lato,calibri,segoeui,helvetica,arial,sans-serif'
+            # Try to use modern system fonts
             self.font_large = pygame.font.SysFont(font_list, int(self.board_size * GameConfig.FONT_LARGE_PERCENTAGE), bold=True)
             self.font_medium = pygame.font.SysFont(font_list, int(self.board_size * GameConfig.FONT_MEDIUM_PERCENTAGE), bold=False)
             self.font_medium_bold = pygame.font.SysFont(font_list, int(self.board_size * GameConfig.FONT_MEDIUM_PERCENTAGE), bold=True)
@@ -75,71 +191,32 @@ class ChessDisplay:
             self.font_medium_bold = pygame.font.Font(None, int(self.board_size * GameConfig.FONT_MEDIUM_PERCENTAGE))
             self.font_small = pygame.font.Font(None, int(self.board_size * GameConfig.FONT_SMALL_PERCENTAGE))
             self.font_small_bold = pygame.font.Font(None, int(self.board_size * GameConfig.FONT_SMALL_PERCENTAGE))
-        
-        # Load piece images (placeholder - you'd load actual piece images here)
-        self.piece_images = self._load_piece_images()
 
-        # Create move indicator circle surface once
-        self.move_indicator = self._create_move_indicator()
+    def _scale_piece_images(self) -> None:
+        """Scale piece images to match current square size"""
+        self.piece_images = {}
 
-        # Help panel dimensions and positioning
-        self.help_panel_width = int(window_width * GameConfig.HELP_PANEL_WIDTH_PERCENTAGE)
-        self.help_panel_x = self.board_margin_x + self.board_size + int(window_width * GameConfig.HELP_PANEL_MARGIN_PERCENTAGE)
-        self.help_panel_y = self.board_margin_y
+        for key, original_image in self.original_piece_images.items():
+            # Determine piece type from key (e.g., "w1" -> 1 = PAWN)
+            piece_type = int(key[1])
 
-        # Checkbox dimensions
-        self.checkbox_size = int(window_width * GameConfig.CHECKBOX_SIZE_PERCENTAGE)
-        self.checkbox_spacing = int(window_height * GameConfig.CHECKBOX_SPACING_PERCENTAGE)
+            # Calculate piece size based on type (pawns smaller than other pieces)
+            if piece_type == chess.PAWN:
+                piece_size = int(self.square_size * GameConstants.PAWN_SIZE_FACTOR)
+            else:
+                piece_size = int(self.square_size * GameConstants.PIECE_SIZE_FACTOR)
 
-        # Help options - load from settings file if available
-        self.settings_file = ".capablanca"
-        self.help_options = []  # Removed Flip Board checkbox
-        self._load_settings()
+            # Scale and cache the image
+            scaled_image = pygame.transform.smoothscale(original_image, (piece_size, piece_size))
+            self.piece_images[key] = scaled_image
 
-        # Flip board state (no longer a checkbox)
-        self.flip_board_enabled = False
+    def resize(self, window_width: int, window_height: int) -> None:
+        """Resize the display to new window dimensions"""
+        # Recalculate all dimensions and recreate scaled resources
+        self._calculate_dimensions(window_width, window_height)
 
-        # Button rectangles for Flip Board and Help buttons
-        self.flip_board_button_rect = None
-        self.help_main_button_rect = None
-
-        # Checkmate animation variables
-        self.checkmate_animation_start_time = None
-        self.checkmate_king_position = None
-
-        # Move animation variables (for navigation)
-        self.move_animation_start_time = None
-        self.move_animation_from_square = None
-        self.move_animation_to_square = None
-        self.move_animation_piece = None
-        self.move_animation_duration = 0.1  # 100ms in seconds (1/10 second)
-
-        # Cache activity scores to avoid constant recalculation
-        self.cached_activity_white = 0
-        self.cached_activity_black = 0
-        self.activity_cache_valid = False
-
-        # Statistics hover feedback system
-        self.hovered_statistic = None  # (stat_type, player_or_opponent) e.g., ("activity", "player")
-        self.statistic_cell_rects = {}  # Track clickable areas for each statistic
-
-        # Cached gradient surfaces for piece glows
-        self.hanging_glow_surface = None
-        self.hanging_glow_size = None
-        self.attacked_glow_surface = None
-        self.attacked_glow_size = None
-
-        # VCR control buttons
-        self.vcr_button_rects = {}  # Store button rectangles for click detection
-        self.vcr_button_size = int(window_width * 0.04)  # 4% of window width
-
-        # Help button
-        self.help_button_rect = None  # Store help button rectangle for click detection
-        self.help_overlay_visible = False  # Show help overlay instead of separate window
-
-    def invalidate_activity_cache(self):
-        """Invalidate activity cache when board state changes"""
-        self.activity_cache_valid = False
+        # Invalidate activity cache since layout changed
+        self.invalidate_activity_cache()
 
     def draw_vcr_button(self, screen, x: int, y: int, button_type: str, enabled: bool = True) -> pygame.Rect:
         """Draw a VCR control button and return its rectangle"""
@@ -205,62 +282,6 @@ class ChessDisplay:
 
         return button_rect
     
-    def _load_piece_images(self) -> dict:
-        """Load and scale piece images from PNG files"""
-        images = {}
-
-        # Map piece types to their string representations for filenames
-        piece_symbols = {
-            chess.PAWN: 'P',
-            chess.KNIGHT: 'N',
-            chess.BISHOP: 'B',
-            chess.ROOK: 'R',
-            chess.QUEEN: 'Q',
-            chess.KING: 'K'
-        }
-
-        for color in [chess.WHITE, chess.BLACK]:
-            for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN, chess.KING]:
-                # Calculate piece size based on type (pawns smaller than other pieces)
-                if piece_type == chess.PAWN:
-                    piece_size = int(self.square_size * 0.65)
-                else:
-                    piece_size = int(self.square_size * 0.75)
-
-                # Create filename based on naming convention: {color}{piece}.png
-                color_prefix = "w" if color == chess.WHITE else "b"
-                piece_symbol = piece_symbols[piece_type]
-                relative_filename = f"images/2x/{color_prefix}{piece_symbol}.png"
-                filename = get_resource_path(relative_filename)
-
-                try:
-                    # Load the original image
-                    original_image = pygame.image.load(filename)
-
-                    # Scale once using smooth scaling and cache it
-                    scaled_image = pygame.transform.smoothscale(original_image, (piece_size, piece_size))
-
-                    # Store with the key format: "w1" for white pawn, "b6" for black king, etc.
-                    color_str = "w" if color == chess.WHITE else "b"
-                    key = f"{color_str}{piece_type}"
-                    images[key] = scaled_image
-
-                except pygame.error as e:
-                    pass  # Could not load piece image
-                    # Create a fallback colored rectangle if image loading fails
-                    surface = pygame.Surface((piece_size, piece_size))
-                    if color == chess.WHITE:
-                        surface.fill(self.RGB_WHITE)
-                    else:
-                        surface.fill(self.RGB_BLACK)
-                    pygame.draw.rect(surface, Colors.PIECE_BORDER, surface.get_rect(), 2)
-
-                    color_str = "w" if color == chess.WHITE else "b"
-                    key = f"{color_str}{piece_type}"
-                    images[key] = surface
-
-        return images
-
     def _create_move_indicator(self) -> pygame.Surface:
         """Create a translucent circle surface for move indicators"""
         # Create a surface with per-pixel alpha
@@ -2138,16 +2159,17 @@ class ChessDisplay:
         overlay.fill((0, 0, 0, 180))
         screen.blit(overlay, (0, 0))
 
-        # Help box dimensions
-        box_width = 600
-        box_height = 500
+        # Help box dimensions - scaled based on window size, centered
+        box_width = int(self.window_width * GameConfig.HELP_OVERLAY_WIDTH)
+        box_height = int(self.window_height * GameConfig.HELP_OVERLAY_HEIGHT)
         box_x = (self.window_width - box_width) // 2
         box_y = (self.window_height - box_height) // 2
 
         # Draw white box
         box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
         pygame.draw.rect(screen, (255, 255, 255), box_rect)
-        pygame.draw.rect(screen, (0, 0, 0), box_rect, 3)
+        border_thickness = int(self.window_width * GameConfig.HELP_OVERLAY_BORDER)
+        pygame.draw.rect(screen, (0, 0, 0), box_rect, max(border_thickness, 2))
 
         # Help text content - structured as (text, font, is_title, column) where column is 0 for full width, 1 for left, 2 for right
         help_lines = [
@@ -2158,6 +2180,7 @@ class ChessDisplay:
             ("  Green background = stat favors player", self.font_small, False, 0),
             ("  Red background = stat favors opponent", self.font_small, False, 0),
             ("", None, False, 0),
+            ("EXTRA_SPACE", None, False, 0),
             ("Tactical Indicators on chessboard:", self.font_small_bold, False, 0),
             ("  Hover the cursor over pieces to see possible capture exchanges", self.font_small, False, 0),
             ("  Yellow disc behind piece means it has defenders", self.font_small, False, 0),
@@ -2166,6 +2189,7 @@ class ChessDisplay:
             ("  S in white circle means a piece is Skewered", self.font_small, False, 0),
             ("  Gray arrows indicate potential forks", self.font_small, False, 0),
             ("", None, False, 0),
+            ("EXTRA_SPACE", None, False, 0),
             ("Keyboard Shortcuts", self.font_small_bold, False, 3),  # Column 3 = centered over columns
             ("", None, False, 0),
             ("Move Navigation", self.font_small_bold, False, 1),
@@ -2183,7 +2207,12 @@ class ChessDisplay:
             ("Ctrl+F - Save FEN", self.font_small, False, 2),
         ]
 
-        y = box_y + 20
+        # Scale padding and spacing based on box size
+        padding = int(box_width * GameConfig.HELP_OVERLAY_PADDING)
+        line_spacing = int(box_height * GameConfig.HELP_OVERLAY_LINE_SPACING)
+        blank_line_spacing = line_spacing // 2
+
+        y = box_y + padding
 
         # Calculate column widths for centering
         # Find all column 1 and column 2 entries to determine their max widths
@@ -2198,18 +2227,24 @@ class ChessDisplay:
                 col2_max_width = max(col2_max_width, text_width)
 
         # Calculate centered positions for the two-column unit
-        column_spacing = 40  # Space between the two columns
+        column_spacing = int(box_width * GameConfig.HELP_OVERLAY_COLUMN_SPACING)
         total_columns_width = col1_max_width + column_spacing + col2_max_width
         col1_x = box_x + (box_width - total_columns_width) // 2
         col2_x = col1_x + col1_max_width + column_spacing
 
         left_col_y = 0
         right_col_y = 0
+        row_spacing = line_spacing // 3
 
         for line_text, font, is_title, column in help_lines:
+            if line_text == "EXTRA_SPACE":
+                if column == 0:
+                    y += line_spacing  # Full line height spacing
+                continue
+
             if line_text == "":
                 if column == 0:
-                    y += 10
+                    y += blank_line_spacing
                 continue
 
             if font is None:
@@ -2219,24 +2254,24 @@ class ChessDisplay:
             text_surface = font.render(line_text, True, color)
 
             if column == 0:  # Full width
-                x = box_x + 20 if not is_title else box_x + (box_width - text_surface.get_width()) // 2
+                x = box_x + padding if not is_title else box_x + (box_width - text_surface.get_width()) // 2
                 screen.blit(text_surface, (x, y))
-                y += text_surface.get_height() + 5
+                y += text_surface.get_height() + line_spacing
                 left_col_y = y
                 right_col_y = y
             elif column == 3:  # Centered over the two-column block
                 # Center this text over the two-column unit
                 x = col1_x + (total_columns_width - text_surface.get_width()) // 2
                 screen.blit(text_surface, (x, y))
-                y += text_surface.get_height() + 5
+                y += text_surface.get_height() + line_spacing
                 left_col_y = y
                 right_col_y = y
             elif column == 1:  # Left column
                 screen.blit(text_surface, (col1_x, left_col_y))
-                left_col_y += text_surface.get_height() + 3
+                left_col_y += text_surface.get_height() + row_spacing
             elif column == 2:  # Right column
                 screen.blit(text_surface, (col2_x, right_col_y))
-                right_col_y += text_surface.get_height() + 3
+                right_col_y += text_surface.get_height() + row_spacing
 
     def is_help_overlay_visible(self) -> bool:
         """Check if help overlay is visible"""
