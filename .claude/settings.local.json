@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git restore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git mv:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cd:*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd captured pieces display and splash screen\n\n- Implement dynamic captured pieces calculation from board state (not tracked separately)\n- Display captured pieces above/below board in miniature size (pawns 30% smaller)\n- Show material advantage (+X) next to captured pieces for leading side\n- Captured pieces appear on captor''s side in their original color\n- Add 2-second splash screen on startup (images/capa.png)\n- Vertically center chessboard with legend and statistics panel\n- Rename pngs/ directory to images/ throughout codebase\n- Add user command shortcuts to CLAUDE.md (OK?, go, copu)\n- Update permissions in .claude/settings.local.json for smoother workflow\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(python:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd smooth navigation animations and fix PGN undo stack bug\n\n- Implement 100ms animations for single-step navigation (undo/redo)\n- Animate pieces from source to destination during navigation\n- Skip tactical visualizations during animations for better performance\n- Run at 60 FPS during animations, 30 FPS normally\n- No animations for bulk operations (rewind/fast-forward)\n- Fix critical PGN loading bug: undo stack now saves positions before moves\n- Previously saved positions after moves, causing first undo to fail\n- Ensure proper redraw after animation completes\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFix Ctrl+F key conflict and reduce splash screen duration\n\n- Fix Ctrl+F not saving FEN (was being intercepted by F flip board)\n- Check for Ctrl modifier first before handling plain F key\n- Remove duplicate Ctrl+F handler later in code\n- Reduce splash screen from 2 seconds to 1 second\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(pyinstaller:*)",
+      "Bash(pip install:*)",
+      "Bash(git checkout:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
