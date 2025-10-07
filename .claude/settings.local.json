@@ -25,7 +25,8 @@
       "Bash(pip install:*)",
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

@@ -351,51 +351,84 @@ class BoardState:
                 analysis['black_passed'].append(square)
 
         # --- BACKWARD PAWNS ---
+        # A backward pawn is:
+        # 1. Behind all pawns of the same color on adjacent files
+        # 2. Cannot be safely advanced
         for square in white_pawns:
             rank = chess.square_rank(square)
             file = chess.square_file(square)
-            # Can be defended by friendly pawn?
-            can_be_defended = False
-            if rank > 0:  # Not on first rank
-                for defend_file in [file - 1, file + 1]:
-                    if 0 <= defend_file <= 7:
-                        defend_square = chess.square(defend_file, rank - 1)
-                        if defend_square in white_pawns:
-                            can_be_defended = True
-                            break
-            # Can safely advance?
-            can_safely_advance = True
-            if rank < 7:  # Not on last rank
-                for enemy_file in [file - 1, file + 1]:
-                    if 0 <= enemy_file <= 7 and rank + 2 <= 7:
-                        enemy_square = chess.square(enemy_file, rank + 2)
-                        if enemy_square in black_pawns:
-                            can_safely_advance = False
-                            break
-            if not can_be_defended and not can_safely_advance:
-                analysis['white_backward'].append(square)
+
+            # Check if pawn is behind all friendly pawns on adjacent files
+            is_behind_adjacent_pawns = False
+            has_adjacent_pawns = False
+            for adj_file in [file - 1, file + 1]:
+                if 0 <= adj_file <= 7:
+                    # Check all pawns on this adjacent file
+                    for pawn_square in white_pawns:
+                        if chess.square_file(pawn_square) == adj_file:
+                            has_adjacent_pawns = True
+                            pawn_rank = chess.square_rank(pawn_square)
+                            # If any adjacent pawn is ahead of us (higher rank), we're behind
+                            if pawn_rank > rank:
+                                is_behind_adjacent_pawns = True
+                                break
+                    if is_behind_adjacent_pawns:
+                        break
+
+            # Only consider it backward if there are adjacent pawns and we're behind them
+            if has_adjacent_pawns and is_behind_adjacent_pawns:
+                # Check if pawn can safely advance
+                can_safely_advance = True
+                if rank < 7:  # Not on last rank
+                    advance_square = chess.square(file, rank + 1)
+                    # Check if advancing would put us under attack by enemy pawns
+                    for enemy_file in [file - 1, file + 1]:
+                        if 0 <= enemy_file <= 7 and rank + 2 <= 7:
+                            enemy_square = chess.square(enemy_file, rank + 2)
+                            if enemy_square in black_pawns:
+                                can_safely_advance = False
+                                break
+
+                if not can_safely_advance:
+                    analysis['white_backward'].append(square)
 
         for square in black_pawns:
             rank = chess.square_rank(square)
             file = chess.square_file(square)
-            can_be_defended = False
-            if rank < 7:  # Not on last rank
-                for defend_file in [file - 1, file + 1]:
-                    if 0 <= defend_file <= 7:
-                        defend_square = chess.square(defend_file, rank + 1)
-                        if defend_square in black_pawns:
-                            can_be_defended = True
-                            break
-            can_safely_advance = True
-            if rank > 0:  # Not on first rank
-                for enemy_file in [file - 1, file + 1]:
-                    if 0 <= enemy_file <= 7 and rank - 2 >= 0:
-                        enemy_square = chess.square(enemy_file, rank - 2)
-                        if enemy_square in white_pawns:
-                            can_safely_advance = False
-                            break
-            if not can_be_defended and not can_safely_advance:
-                analysis['black_backward'].append(square)
+
+            # Check if pawn is behind all friendly pawns on adjacent files
+            is_behind_adjacent_pawns = False
+            has_adjacent_pawns = False
+            for adj_file in [file - 1, file + 1]:
+                if 0 <= adj_file <= 7:
+                    # Check all pawns on this adjacent file
+                    for pawn_square in black_pawns:
+                        if chess.square_file(pawn_square) == adj_file:
+                            has_adjacent_pawns = True
+                            pawn_rank = chess.square_rank(pawn_square)
+                            # If any adjacent pawn is ahead of us (lower rank), we're behind
+                            if pawn_rank < rank:
+                                is_behind_adjacent_pawns = True
+                                break
+                    if is_behind_adjacent_pawns:
+                        break
+
+            # Only consider it backward if there are adjacent pawns and we're behind them
+            if has_adjacent_pawns and is_behind_adjacent_pawns:
+                # Check if pawn can safely advance
+                can_safely_advance = True
+                if rank > 0:  # Not on first rank
+                    advance_square = chess.square(file, rank - 1)
+                    # Check if advancing would put us under attack by enemy pawns
+                    for enemy_file in [file - 1, file + 1]:
+                        if 0 <= enemy_file <= 7 and rank - 2 >= 0:
+                            enemy_square = chess.square(enemy_file, rank - 2)
+                            if enemy_square in white_pawns:
+                                can_safely_advance = False
+                                break
+
+                if not can_safely_advance:
+                    analysis['black_backward'].append(square)
 
         # --- FORK DETECTION ---
         # Detect all possible forks for both colors
@@ -751,6 +784,36 @@ class BoardState:
         white_dev = self.count_developed_pieces(chess.WHITE)
         black_dev = self.count_developed_pieces(chess.BLACK)
         return (white_dev, black_dev)
+
+    def count_incursions(self, color: bool) -> int:
+        """
+        Count your pieces on opponent's half of the board (last 4 ranks from your perspective).
+        For white: counts white pieces on ranks 5-8 (squares 32-63)
+        For black: counts black pieces on ranks 1-4 (squares 0-31)
+        Higher is better (more offensive presence).
+        """
+        count = 0
+
+        if color == chess.WHITE:
+            # White's incursions: white pieces on ranks 5-8 (squares 32-63)
+            for square in range(32, 64):
+                piece = self.board.piece_at(square)
+                if piece and piece.color == color:
+                    count += 1
+        else:
+            # Black's incursions: black pieces on ranks 1-4 (squares 0-31)
+            for square in range(32):
+                piece = self.board.piece_at(square)
+                if piece and piece.color == color:
+                    count += 1
+
+        return count
+
+    def get_incursion_scores(self) -> Tuple[int, int]:
+        """Get incursion counts for both colors. Returns (white_incursions, black_incursions)"""
+        white_incursions = self.count_incursions(chess.WHITE)
+        black_incursions = self.count_incursions(chess.BLACK)
+        return (white_incursions, black_incursions)
 
     def count_attacked_pieces(self, color: bool) -> int:
         """Count how many pieces of this color are attacked by the enemy"""

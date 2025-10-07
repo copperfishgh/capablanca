@@ -312,9 +312,9 @@ class ChessDisplay:
         # Draw statistics if board_state is provided
         if board_state:
             # Calculate vertical centering for statistics table
-            # 9 rows in the table, calculate total height needed
+            # 10 rows in the table, calculate total height needed
             stats_row_height = self.font_medium.get_height() + 6
-            total_table_height = 9 * stats_row_height
+            total_table_height = 10 * stats_row_height
 
             # Calculate space for VCR controls at bottom
             vcr_controls_height = self.vcr_button_size + 40  # Button height + padding
@@ -381,16 +381,24 @@ class ChessDisplay:
         else:
             player_hanging, opponent_hanging = white_hanging, black_hanging
 
+        # Get incursion statistics
+        white_incursions, black_incursions = board_state.get_incursion_scores()
+        if is_board_flipped:
+            player_incursions, opponent_incursions = black_incursions, white_incursions
+        else:
+            player_incursions, opponent_incursions = white_incursions, black_incursions
+
         # Table data: (name, player_value, opponent_value, higher_is_better)
         table_data = [
             ("Hanging", player_hanging, opponent_hanging, False),  # Lower is better
             ("Attacked", player_attacked, opponent_attacked, False),  # Lower is better
             ("Developed", player_development, opponent_development, True),
+            ("Incursions", player_incursions, opponent_incursions, True),  # Higher is better
+            ("Pawns", player_pawns, opponent_pawns, True),
             ("Passed", player_passed, opponent_passed, True),         # Higher is better
             ("Backward", player_backward, opponent_backward, False),  # Lower is better
             ("Isolated", player_isolated, opponent_isolated, False),  # Lower is better
             ("Doubled", player_doubled, opponent_doubled, False),     # Lower is better
-            ("Pawns", player_pawns, opponent_pawns, True),
             ("Activity", player_activity, opponent_activity, True)
         ]
 
@@ -547,6 +555,8 @@ class ChessDisplay:
             return self._get_attacked_pieces(board_state, target_color)
         elif stat_type == "hanging":
             return self._get_hanging_pieces(board_state, target_color)
+        elif stat_type == "incursions":
+            return self._get_incursion_pieces(board_state, target_color)
         elif stat_type == "pawns":
             return self._get_pawn_pieces(board_state, target_color)
         elif stat_type == "backward":
@@ -655,6 +665,29 @@ class ChessDisplay:
         hanging_squares = board_state.get_hanging_pieces(color)
         return [coords_from_square(sq) for sq in hanging_squares]
 
+    def _get_incursion_pieces(self, board_state, color: bool):
+        """
+        Get all your pieces on opponent's half of the board.
+        For white: white pieces on ranks 5-8
+        For black: black pieces on ranks 1-4
+        """
+        incursion_pieces = []
+
+        if color == chess.WHITE:
+            # White's incursions: white pieces on ranks 5-8 (squares 32-63)
+            for square in range(32, 64):
+                piece = board_state.board.piece_at(square)
+                if piece and piece.color == color:
+                    incursion_pieces.append(coords_from_square(square))
+        else:
+            # Black's incursions: black pieces on ranks 1-4 (squares 0-31)
+            for square in range(32):
+                piece = board_state.board.piece_at(square)
+                if piece and piece.color == color:
+                    incursion_pieces.append(coords_from_square(square))
+
+        return incursion_pieces
+
     def _get_pawn_pieces(self, board_state, color: bool):
         """Get all pawn pieces of this color"""
         pawn_pieces = []
@@ -665,48 +698,10 @@ class ChessDisplay:
         return pawn_pieces
 
     def _get_backward_pawn_pieces(self, board_state, color: bool):
-        """Get backward pawn pieces of this color"""
-        backward_pawns = []
-        enemy_color = not color
-        pawn_direction = 1 if color == chess.WHITE else -1
-
-        for square in chess.SQUARES:
-            piece = board_state.board.piece_at(square)
-            if piece and piece.color == color and piece.piece_type == chess.PAWN:
-                # Check if this is a backward pawn (simplified version of the main logic)
-                rank = chess.square_rank(square)
-                file = chess.square_file(square)
-
-                # Check if pawn can be defended
-                can_be_defended = False
-                defend_rank = rank - pawn_direction
-                if 0 <= defend_rank < 8:
-                    for defend_file in [file - 1, file + 1]:
-                        if 0 <= defend_file < 8:
-                            defend_square = chess.square(defend_file, defend_rank)
-                            defender = board_state.board.piece_at(defend_square)
-                            if defender and defender.color == color and defender.piece_type == chess.PAWN:
-                                can_be_defended = True
-                                break
-
-                # Check if pawn can safely advance
-                can_safely_advance = True
-                advance_rank = rank + pawn_direction
-                if 0 <= advance_rank < 8:
-                    for enemy_file in [file - 1, file + 1]:
-                        if 0 <= enemy_file < 8:
-                            enemy_attack_rank = advance_rank + pawn_direction
-                            if 0 <= enemy_attack_rank < 8:
-                                enemy_square = chess.square(enemy_file, enemy_attack_rank)
-                                enemy_piece = board_state.board.piece_at(enemy_square)
-                                if enemy_piece and enemy_piece.color == enemy_color and enemy_piece.piece_type == chess.PAWN:
-                                    can_safely_advance = False
-                                    break
-
-                if not can_be_defended and not can_safely_advance:
-                    backward_pawns.append(coords_from_square(square))
-
-        return backward_pawns
+        """Get backward pawn pieces of this color - uses cached analysis from board_state"""
+        board_state._ensure_analysis()
+        backward_list = board_state._analysis['white_backward' if color == chess.WHITE else 'black_backward']
+        return [coords_from_square(sq) for sq in backward_list]
 
     def _get_isolated_pawn_pieces(self, board_state, color: bool):
         """Get isolated pawn pieces of this color"""
